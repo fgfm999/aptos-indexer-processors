@@ -14,6 +14,7 @@ use crate::{
         user_transaction_processor::UserTransactionProcessor, ProcessingResult, Processor,
         ProcessorConfig, ProcessorTrait,
     },
+    processors::custom_processor::CustomProcessor,
     schema::ledger_infos,
     utils::{
         counters::{
@@ -755,6 +756,9 @@ pub fn build_processor(config: &ProcessorConfig, db_pool: PgDbPool) -> Processor
         ProcessorConfig::TokenV2Processor => Processor::from(TokenV2Processor::new(db_pool)),
         ProcessorConfig::UserTransactionProcessor => {
             Processor::from(UserTransactionProcessor::new(db_pool))
+        },
+        ProcessorConfig::CustomProcessor => {
+            Processor::from(CustomProcessor::new(db_pool))
         },
     }
 }

@@ -20,6 +20,7 @@ pub mod stake_processor;
 pub mod token_processor;
 pub mod token_v2_processor;
 pub mod user_transaction_processor;
+pub mod custom_processor;
 
 use self::{
     account_transactions_processor::AccountTransactionsProcessor,
@@ -35,6 +36,7 @@ use self::{
     token_processor::{TokenProcessor, TokenProcessorConfig},
     token_v2_processor::TokenV2Processor,
     user_transaction_processor::UserTransactionProcessor,
+    custom_processor::CustomProcessor,
 };
 use crate::{
     models::processor_status::ProcessorStatus,
@@ -192,6 +194,7 @@ pub enum ProcessorConfig {
     TokenProcessor(TokenProcessorConfig),
     TokenV2Processor,
     UserTransactionProcessor,
+    CustomProcessor,
 }
 
 impl ProcessorConfig {
@@ -233,6 +236,7 @@ pub enum Processor {
     TokenProcessor,
     TokenV2Processor,
     UserTransactionProcessor,
+    CustomProcessor,
 }
 
 #[cfg(test)]

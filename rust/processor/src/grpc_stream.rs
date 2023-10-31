@@ -54,7 +54,7 @@ pub fn grpc_request_builder(
     request
 }
 
-pub async fn get_stream(
+pub async fn get_stream_with_retry(
     indexer_grpc_data_service_address: Url,
     indexer_grpc_http2_ping_interval: Duration,
     indexer_grpc_http2_ping_timeout: Duration,
@@ -63,6 +63,39 @@ pub async fn get_stream(
     auth_token: String,
     processor_name: String,
 ) -> Response<Streaming<TransactionsResponse>> {
+    let mut retires = 0;
+    loop {
+        let response = get_stream(
+            indexer_grpc_data_service_address.clone(),
+            indexer_grpc_http2_ping_interval,
+            indexer_grpc_http2_ping_timeout,
+            starting_version,
+            ending_version,
+            auth_token.clone(),
+            processor_name.clone(),
+        )
+        .await;
+        if let Ok(resp) = response {
+            return resp;
+        } else {
+            if retires > 20 {
+                panic!("Max reconnection retries reached for stream");
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            retires += 1;
+        }
+    }
+}
+
+pub async fn get_stream(
+    indexer_grpc_data_service_address: Url,
+    indexer_grpc_http2_ping_interval: Duration,
+    indexer_grpc_http2_ping_timeout: Duration,
+    starting_version: u64,
+    ending_version: Option<u64>,
+    auth_token: String,
+    processor_name: String,
+) -> anyhow::Result<Response<Streaming<TransactionsResponse>>> {
     info!(
         processor_name = processor_name,
         service_type = crate::worker::PROCESSOR_SERVICE_TYPE,
@@ -115,7 +148,7 @@ pub async fn get_stream(
                 error = ?e,
                 "[Parser] Error connecting to GRPC client"
             );
-            panic!("[Parser] Error connecting to GRPC client");
+            anyhow::bail!("[Parser] Error connecting to GRPC client");
         },
     };
     let count = ending_version.map(|v| (v as i64 - starting_version as i64 + 1) as u64);
@@ -129,10 +162,11 @@ pub async fn get_stream(
         "[Parser] Setting up GRPC stream",
     );
     let request = grpc_request_builder(starting_version, count, auth_token, processor_name);
+    Ok(
     rpc_client
         .get_transactions(request)
         .await
-        .expect("[Parser] Failed to get grpc response. Is the server running?")
+        .expect("[Parser] Failed to get grpc response. Is the server running?"))
 }
 
 pub async fn get_chain_id(
@@ -157,7 +191,7 @@ pub async fn get_chain_id(
         auth_token.clone(),
         processor_name.to_string(),
     )
-    .await;
+    .await.unwrap();
     let connection_id = match response.metadata().get(GRPC_CONNECTION_ID) {
         Some(connection_id) => connection_id.to_str().unwrap().to_string(),
         None => "".to_string(),
@@ -235,7 +269,7 @@ pub async fn create_fetcher_loop(
         auth_token.clone(),
         processor_name.to_string(),
     )
-    .await;
+    .await.unwrap();
     let mut connection_id = match response.metadata().get(GRPC_CONNECTION_ID) {
         Some(connection_id) => connection_id.to_str().unwrap().to_string(),
         None => "".to_string(),
@@ -483,7 +517,7 @@ pub async fn create_fetcher_loop(
                 reconnection_retries = reconnection_retries,
                 "[Parser] Reconnecting to GRPC stream"
             );
-            response = get_stream(
+            response = get_stream_with_retry(
                 indexer_grpc_data_service_address.clone(),
                 indexer_grpc_http2_ping_interval,
                 indexer_grpc_http2_ping_timeout,

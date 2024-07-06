@@ -18,6 +18,7 @@ use crate::{
         user_transaction_processor::UserTransactionProcessor, DefaultProcessingResult, Processor,
         ProcessorConfig, ProcessorTrait,
     },
+    processors::custom_processor::CustomProcessor,
     schema::ledger_infos,
     transaction_filter::TransactionFilter,
     utils::{
@@ -243,7 +244,7 @@ impl Worker {
             self.auth_token.clone(),
             processor_name.to_string(),
         )
-        .await;
+            .await;
         self.check_or_update_chain_id(chain_id as i64)
             .await
             .unwrap();
@@ -292,7 +293,7 @@ impl Worker {
                 transaction_filter,
                 pb_channel_txn_chunk_size,
             )
-            .await
+                .await
         });
 
         // Create a gap detector task that will panic if there is a gap in the processing
@@ -338,7 +339,7 @@ impl Worker {
                 starting_version,
                 gap_detection_batch_size,
             )
-            .await;
+                .await;
         });
 
         // This is the consumer side of the channel. These are the major states:
@@ -418,7 +419,7 @@ impl Worker {
                     receiver_clone.clone(),
                     task_index,
                 )
-                .await
+                    .await
                 {
                     // Fetched transactions from channel
                     Ok(transactions_pb) => {
@@ -498,7 +499,7 @@ impl Worker {
                             &auth_token,
                             false, // enable_verbose_logging
                         )
-                        .await;
+                            .await;
 
                         let processing_result = match res {
                             Ok(versions) => {
@@ -506,7 +507,7 @@ impl Worker {
                                     .with_label_values(&[processor_name])
                                     .inc();
                                 versions
-                            },
+                            }
                             Err(e) => {
                                 error!(
                                     processor_name = processor_name,
@@ -522,7 +523,7 @@ impl Worker {
                                     "[Parser][T#{}] Error processing '{:}' transactions: {:?}",
                                     task_index, processor_name, e
                                 );
-                            },
+                            }
                         };
 
                         match processing_result {
@@ -619,12 +620,12 @@ impl Worker {
                                     ))
                                     .await
                                     .expect("[Parser] Failed to send versions to gap detector");
-                            },
+                            }
                             ProcessingResult::ParquetProcessingResult(_) => {
                                 debug!("parquet processing result doesn't need to be handled here");
-                            },
+                            }
                         }
-                    },
+                    }
                     // Could not fetch transactions from channel. This happens when there are
                     // no more transactions to fetch and the channel is closed.
                     Err(e) => {
@@ -636,7 +637,7 @@ impl Worker {
                             "[Parser][T#{}] Consumer thread exiting fetching loop", task_index
                         );
                         break;
-                    },
+                    }
                 }
             }
         })
@@ -678,8 +679,8 @@ impl Worker {
                 AsyncConnectionWrapper::from(conn);
             run_pending_migrations(&mut conn);
         })
-        .await
-        .expect("[Parser] Failed to run migrations");
+            .await
+            .expect("[Parser] Failed to run migrations");
     }
 
     /// Gets the start version for the processor. If not found, start from 0.
@@ -714,7 +715,7 @@ impl Worker {
                     "[Parser] Chain id matches! Continue to index...",
                 );
                 Ok(chain_id as u64)
-            },
+            }
             None => {
                 info!(
                     processor_name = processor_name,
@@ -730,10 +731,10 @@ impl Worker {
                         .on_conflict_do_nothing(),
                     None,
                 )
-                .await
-                .context("[Parser] Error updating chain_id!")
-                .map(|_| grpc_chain_id as u64)
-            },
+                    .await
+                    .context("[Parser] Error updating chain_id!")
+                    .map(|_| grpc_chain_id as u64)
+            }
         }
     }
 }
@@ -765,7 +766,7 @@ async fn fetch_transactions(
                 "[Parser][T#{}] Consumer thread receiver channel closed.",
                 task_index
             ))
-        },
+        }
     }
 }
 
@@ -858,7 +859,7 @@ pub fn build_processor(
         )),
         ProcessorConfig::CoinProcessor => {
             Processor::from(CoinProcessor::new(db_pool, per_table_chunk_sizes))
-        },
+        }
         ProcessorConfig::DefaultProcessor => Processor::from(DefaultProcessor::new(
             db_pool,
             per_table_chunk_sizes,
@@ -866,7 +867,7 @@ pub fn build_processor(
         )),
         ProcessorConfig::EventsProcessor => {
             Processor::from(EventsProcessor::new(db_pool, per_table_chunk_sizes))
-        },
+        }
         ProcessorConfig::FungibleAssetProcessor => Processor::from(FungibleAssetProcessor::new(
             db_pool,
             per_table_chunk_sizes,
@@ -875,7 +876,7 @@ pub fn build_processor(
         ProcessorConfig::MonitoringProcessor => Processor::from(MonitoringProcessor::new(db_pool)),
         ProcessorConfig::NftMetadataProcessor(config) => {
             Processor::from(NftMetadataProcessor::new(db_pool, config.clone()))
-        },
+        }
         ProcessorConfig::ObjectsProcessor(config) => Processor::from(ObjectsProcessor::new(
             db_pool,
             config.clone(),
@@ -910,6 +911,9 @@ pub fn build_processor(
                 config.clone(),
                 gap_detector_sender.expect("Parquet processor requires a gap detector sender"),
             ))
-        },
+        }
+        ProcessorConfig::CustomProcessor => Processor::from(
+            CustomProcessor::new(db_pool, per_table_chunk_sizes, deprecated_tables)
+        ),
     }
 }

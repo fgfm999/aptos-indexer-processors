@@ -19,6 +19,7 @@ pub mod token_processor;
 pub mod token_v2_processor;
 pub mod transaction_metadata_processor;
 pub mod user_transaction_processor;
+pub mod custom_processor;
 
 use self::{
     account_transactions_processor::AccountTransactionsProcessor,
@@ -36,6 +37,7 @@ use self::{
     token_v2_processor::{TokenV2Processor, TokenV2ProcessorConfig},
     transaction_metadata_processor::TransactionMetadataProcessor,
     user_transaction_processor::UserTransactionProcessor,
+    custom_processor::CustomProcessor,
 };
 use crate::{
     db::common::models::processor_status::ProcessorStatus,
@@ -195,6 +197,7 @@ pub enum ProcessorConfig {
     TransactionMetadataProcessor,
     UserTransactionProcessor,
     DefaultParquetProcessor(DefaultParquetProcessorConfig),
+    CustomProcessor,
 }
 
 impl ProcessorConfig {
@@ -242,6 +245,7 @@ pub enum Processor {
     TransactionMetadataProcessor,
     UserTransactionProcessor,
     DefaultParquetProcessor,
+    CustomProcessor,
 }
 
 #[cfg(test)]

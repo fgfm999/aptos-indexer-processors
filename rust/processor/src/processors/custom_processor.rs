@@ -197,6 +197,9 @@ impl ProcessorTrait for CustomProcessor {
         }
 
         // user tx, events, current object,
+        let skip_txes = vec![
+            "0x7de3fea83cd5ca0e1def27c3f3803af619882db51f34abf30dd04ad12ee6af31::tapos_game_2::play"
+        ];
         for txn in &transactions {
             let txn_version = txn.version as i64;
             let block_height = txn.block_height as i64;
@@ -211,12 +214,15 @@ impl ProcessorTrait for CustomProcessor {
                     txn.epoch as i64,
                     txn_version,
                 );
-                user_transactions.push(user_transaction);
+                if !skip_txes.contains(&&*user_transaction.entry_function_id_str) {
+                    user_transactions.push(user_transaction);
+                }
             }
 
             // user event
             if let TxnData::User(tx_inner) = txn_data {
-                let txn_events = EventModel::from_events(&tx_inner.events, txn_version, block_height);
+                let txn_events = EventModel::from_events(&tx_inner.events, txn_version, block_height).iter()
+                    .filter(|e| e.type_ == "0x1::transaction_fee::FeeStatement").collect::<Vec<_>>();
                 events.extend(txn_events);
             }
         }

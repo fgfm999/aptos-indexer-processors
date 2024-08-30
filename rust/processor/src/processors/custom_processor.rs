@@ -224,7 +224,7 @@ impl ProcessorTrait for CustomProcessor {
             if let TxnData::User(tx_inner) = txn_data {
                 // let txn_events = EventModel::from_events(&tx_inner.events, txn_version, block_height);
                 let txn_events = EventModel::from_events(&tx_inner.events, txn_version, block_height).into_iter()
-                    .filter(|e| e.type_ == "0x1::transaction_fee::FeeStatement").collect::<Vec<_>>();
+                    .filter(|e| e.type_ != "0x1::transaction_fee::FeeStatement").collect::<Vec<_>>();
                 events.extend(txn_events);
             }
         }

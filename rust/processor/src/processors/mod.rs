@@ -17,6 +17,7 @@ pub mod stake_processor;
 pub mod token_v2_processor;
 pub mod transaction_metadata_processor;
 pub mod user_transaction_processor;
+pub mod custom_processor;
 
 use self::{
     account_transactions_processor::AccountTransactionsProcessor,
@@ -31,6 +32,7 @@ use self::{
     token_v2_processor::{TokenV2Processor, TokenV2ProcessorConfig},
     transaction_metadata_processor::TransactionMetadataProcessor,
     user_transaction_processor::UserTransactionProcessor,
+    custom_processor::CustomProcessor,
 };
 use crate::{
     db::postgres::models::processor_status::ProcessorStatus,
@@ -215,6 +217,8 @@ pub enum ProcessorConfig {
     ParquetEventsProcessor(ParquetEventsProcessorConfig),
     ParquetTokenV2Processor(ParquetTokenV2ProcessorConfig),
     ParquetUserTransactionsProcessor(ParquetUserTransactionsProcessorConfig),
+    CustomProcessor,
+
 }
 
 impl ProcessorConfig {
@@ -280,6 +284,7 @@ pub enum Processor {
     ParquetEventsProcessor,
     ParquetTokenV2Processor,
     ParquetUserTransactionsProcessor,
+    CustomProcessor,
 }
 
 #[cfg(test)]

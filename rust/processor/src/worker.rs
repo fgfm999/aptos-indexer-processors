@@ -65,6 +65,7 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info};
 use url::Url;
 
+use crate::processors::custom_processor::CustomProcessor;
 // this is how large the fetch queue should be. Each bucket should have a max of 80MB or so, so a batch
 // of 50 means that we could potentially have at least 4.8GB of data in memory at any given time and that we should provision
 // machines accordingly.
@@ -978,5 +979,8 @@ pub fn build_processor(
                 gap_detector_sender.expect("Parquet processor requires a gap detector sender"),
             ))
         },
+        ProcessorConfig::CustomProcessor => Processor::from(
+            CustomProcessor::new(db_pool, per_table_chunk_sizes)
+        ),
     }
 }

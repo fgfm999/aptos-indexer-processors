@@ -15,9 +15,7 @@ use crate::{
 };
 use ahash::AHashMap;
 use anyhow::bail;
-use aptos_protos::transaction::v1::{
-    transaction::TxnData, write_set_change::Change as WriteSetChangeEnum, Transaction,
-};
+use aptos_protos::transaction::v1::{write_set_change::Change as WriteSetChangeEnum, Transaction};
 use async_trait::async_trait;
 use diesel::{
     pg::{upsert::excluded, Pg},
@@ -31,17 +29,6 @@ pub struct CustomProcessor {
     connection_pool: ArcDbPool,
     per_table_chunk_sizes: AHashMap<String, usize>,
 }
-
-const SKIP_EVENTS: &'static [&str] = &[
-    "0x1::block::NewBlockEvent",
-    "0x1::fungible_asset::Deposit",
-    "0x1::fungible_asset::Withdraw",
-    "0x1::coin::DepositEvent",
-    "0x1::coin::WithdrawEvent",
-    "0x1::coin::Deposit",
-    "0x1::coin::Withdraw",
-    "0x1::transaction_fee::FeeStatement",
-];
 
 impl CustomProcessor {
     pub fn new(connection_pool: ArcDbPool, per_table_chunk_sizes: AHashMap<String, usize>) -> Self {
@@ -62,7 +49,6 @@ impl Debug for CustomProcessor {
         )
     }
 }
-
 
 fn insert_current_table_items_query(
     items_to_insert: Vec<CurrentTableItem>,
@@ -189,9 +175,7 @@ impl ProcessorTrait for CustomProcessor {
     }
 }
 
-pub fn process_transactions(
-    transactions: Vec<Transaction>,
-) -> Vec<RawCurrentTableItem> {
+pub fn process_transactions(transactions: Vec<Transaction>) -> Vec<RawCurrentTableItem> {
     let mut current_table_items = AHashMap::new();
 
     for transaction in transactions {
@@ -209,17 +193,6 @@ pub fn process_transactions(
         let block_timestamp =
             chrono::NaiveDateTime::from_timestamp_opt(timestamp.seconds, timestamp.nanos as u32)
                 .expect("Txn Timestamp is invalid!");
-
-        let txn_data = match transaction.txn_data.as_ref() {
-            Some(txn_data) => txn_data,
-            None => {
-                tracing::warn!(
-                    transaction_version = transaction.version,
-                    "Transaction data doesn't exist",
-                );
-                continue;
-            },
-        };
 
         // current_table
         for (index, wsc) in transaction_info.changes.iter().enumerate() {

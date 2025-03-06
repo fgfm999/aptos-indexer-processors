@@ -8,9 +8,7 @@ use crate::{
             raw_current_table_items::{CurrentTableItemConvertible, RawCurrentTableItem},
             raw_table_items::RawTableItem,
         },
-        postgres::models::{
-            default_models::move_tables::CurrentTableItem, events_models::events::EventModel,
-        },
+        postgres::models::default_models::move_tables::CurrentTableItem,
     },
     schema,
     utils::database::{execute_in_chunks, get_config_table_chunk_size, ArcDbPool},
@@ -65,25 +63,6 @@ impl Debug for CustomProcessor {
     }
 }
 
-fn insert_events_query(
-    items_to_insert: Vec<EventModel>,
-) -> (
-    impl QueryFragment<Pg> + diesel::query_builder::QueryId + Send,
-    Option<&'static str>,
-) {
-    use schema::events::dsl::*;
-    (
-        diesel::insert_into(schema::events::table)
-            .values(items_to_insert)
-            .on_conflict((transaction_version, event_index))
-            .do_update()
-            .set((
-                inserted_at.eq(excluded(inserted_at)),
-                indexed_type.eq(excluded(indexed_type)),
-            )),
-        None,
-    )
-}
 
 fn insert_current_table_items_query(
     items_to_insert: Vec<CurrentTableItem>,
@@ -115,7 +94,6 @@ async fn insert_to_db(
     name: &'static str,
     start_version: u64,
     end_version: u64,
-    events: &[EventModel],
     current_table_items: &[CurrentTableItem],
     per_table_chunk_sizes: &AHashMap<String, usize>,
 ) -> Result<(), diesel::result::Error> {
@@ -126,13 +104,6 @@ async fn insert_to_db(
         "Inserting to db",
     );
 
-    execute_in_chunks(
-        conn.clone(),
-        insert_events_query,
-        events,
-        get_config_table_chunk_size::<EventModel>("events", per_table_chunk_sizes),
-    )
-    .await?;
     execute_in_chunks(
         conn.clone(),
         insert_current_table_items_query,
@@ -162,7 +133,7 @@ impl ProcessorTrait for CustomProcessor {
         let processing_start = std::time::Instant::now();
         let last_transaction_timestamp = transactions.last().unwrap().timestamp.clone();
 
-        let (raw_current_table_items, events) =
+        let raw_current_table_items =
             tokio::task::spawn_blocking(move || process_transactions(transactions))
                 .await
                 .expect("Failed to spawn_blocking for TransactionModel::from_transactions");
@@ -179,7 +150,6 @@ impl ProcessorTrait for CustomProcessor {
             self.name(),
             start_version,
             end_version,
-            &events,
             &postgres_current_table_items,
             &self.per_table_chunk_sizes,
         )
@@ -221,9 +191,8 @@ impl ProcessorTrait for CustomProcessor {
 
 pub fn process_transactions(
     transactions: Vec<Transaction>,
-) -> (Vec<RawCurrentTableItem>, Vec<EventModel>) {
+) -> Vec<RawCurrentTableItem> {
     let mut current_table_items = AHashMap::new();
-    let mut events = vec![];
 
     for transaction in transactions {
         let version = transaction.version as i64;
@@ -286,15 +255,6 @@ pub fn process_transactions(
                 _ => {},
             };
         }
-
-        // user event
-        if let TxnData::User(tx_inner) = txn_data {
-            let txn_events = EventModel::from_events(&tx_inner.events, version, block_height)
-                .into_iter()
-                .filter(|e| !SKIP_EVENTS.contains(&e.indexed_type.as_str()))
-                .collect::<Vec<_>>();
-            events.extend(txn_events);
-        }
     }
     // Getting list of values and sorting by pk in order to avoid postgres deadlock since we're doing multi threaded db writes
     let mut current_table_items = current_table_items
@@ -303,5 +263,5 @@ pub fn process_transactions(
     // Sort by PK
     current_table_items
         .sort_by(|a, b| (&a.table_handle, &a.key_hash).cmp(&(&b.table_handle, &b.key_hash)));
-    (current_table_items, events)
+    current_table_items
 }

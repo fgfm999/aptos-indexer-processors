@@ -176,14 +176,14 @@ impl Worker {
             service_type = PROCESSOR_SERVICE_TYPE,
             "[Parser] Running migrations"
         );
-        let migration_time = std::time::Instant::now();
-        self.run_migrations().await;
-        info!(
-            processor_name = processor_name,
-            service_type = PROCESSOR_SERVICE_TYPE,
-            duration_in_secs = migration_time.elapsed().as_secs_f64(),
-            "[Parser] Finished migrations"
-        );
+        // let migration_time = std::time::Instant::now();
+        // self.run_migrations().await;
+        // info!(
+        //     processor_name = processor_name,
+        //     service_type = PROCESSOR_SERVICE_TYPE,
+        //     duration_in_secs = migration_time.elapsed().as_secs_f64(),
+        //     "[Parser] Finished migrations"
+        // );
 
         let starting_version_from_db = self
             .get_start_version()

@@ -8,7 +8,9 @@ use crate::{
             raw_current_table_items::{CurrentTableItemConvertible, RawCurrentTableItem},
             raw_table_items::RawTableItem,
         },
-        postgres::models::default_models::move_tables::CurrentTableItem,
+        postgres::models::{
+            default_models::move_tables::CurrentTableItem, events_models::events::EventModel,
+        },
     },
     schema,
     utils::database::{execute_in_chunks, get_config_table_chunk_size, ArcDbPool},
@@ -23,12 +25,34 @@ use diesel::{
     ExpressionMethods,
 };
 use std::fmt::Debug;
+use aptos_protos::transaction::v1::transaction::TxnData;
 use tracing::error;
 
 pub struct CustomProcessor {
     connection_pool: ArcDbPool,
     per_table_chunk_sizes: AHashMap<String, usize>,
 }
+
+const TARGET_EVENTS: &'static [&str] = &[
+    "0xc727553dd5019c4887581f0a89dca9c8ea400116d70e9da7164897812c6646e::pool_event::LiquidatePosition", // Thetis
+    "0x68476f9d437e3f32fd262ba898b5e3ee0a23a1d586a6cf29a28add35f253f6f7::lending_pool::Liquidate",  // Meso
+    "0xc6bc659f1649553c1a3fa05d9727433dc03843baac29473c817d06d39e7621ba::lending::LiquidateEvent", // Echelon
+    "0x2fe576faa841347a9b1b32c869685deb75a15e3f62dfe37cbd6d52cc403a16f6::pool::LiquidationEvent", // Joule
+];
+
+const TARGET_PREFIX_EVENTS: &'static [&str] = &[
+
+    // Thala
+    // 0x6f986d146e4a90b828d8c12c14b6f4e003fdff11a8eecceceb63744363eaac01::vault::LiquidationEvent <0x1::aptos_coin::AptosCoin>
+    "0x6f986d146e4a90b828d8c12c14b6f4e003fdff11a8eecceceb63744363eaac01::vault::LiquidationEvent",
+
+    // Aries
+    // 0x9770fa9c725cbd97eb50b2be5f7416efdfd1f1554beb0750d4dae4c64e860da3::controller::LiquidateEvent<
+    //      0x5e156f1207d0ebfa19a9eeff00d62a282278fb8719f4fab3a586a0a2c0fffbea::coin::T,
+    //      0x1::aptos_coin::AptosCoin>
+    "0x9770fa9c725cbd97eb50b2be5f7416efdfd1f1554beb0750d4dae4c64e860da3::controller::LiquidateEvent",
+];
+
 
 impl CustomProcessor {
     pub fn new(connection_pool: ArcDbPool, per_table_chunk_sizes: AHashMap<String, usize>) -> Self {
@@ -48,6 +72,26 @@ impl Debug for CustomProcessor {
             state.connections, state.idle_connections
         )
     }
+}
+
+fn insert_events_query(
+    items_to_insert: Vec<EventModel>,
+) -> (
+    impl QueryFragment<Pg> + diesel::query_builder::QueryId + Send,
+    Option<&'static str>,
+) {
+    use schema::events::dsl::*;
+    (
+        diesel::insert_into(schema::events::table)
+            .values(items_to_insert)
+            .on_conflict((transaction_version, event_index))
+            .do_update()
+            .set((
+                inserted_at.eq(excluded(inserted_at)),
+                indexed_type.eq(excluded(indexed_type)),
+            )),
+        None,
+    )
 }
 
 fn insert_current_table_items_query(
@@ -80,6 +124,7 @@ async fn insert_to_db(
     name: &'static str,
     start_version: u64,
     end_version: u64,
+    events: &[EventModel],
     current_table_items: &[CurrentTableItem],
     per_table_chunk_sizes: &AHashMap<String, usize>,
 ) -> Result<(), diesel::result::Error> {
@@ -90,6 +135,13 @@ async fn insert_to_db(
         "Inserting to db",
     );
 
+    execute_in_chunks(
+        conn.clone(),
+        insert_events_query,
+        events,
+        get_config_table_chunk_size::<EventModel>("events", per_table_chunk_sizes),
+    )
+    .await?;
     execute_in_chunks(
         conn.clone(),
         insert_current_table_items_query,
@@ -119,7 +171,7 @@ impl ProcessorTrait for CustomProcessor {
         let processing_start = std::time::Instant::now();
         let last_transaction_timestamp = transactions.last().unwrap().timestamp.clone();
 
-        let raw_current_table_items =
+        let (raw_current_table_items, events) =
             tokio::task::spawn_blocking(move || process_transactions(transactions))
                 .await
                 .expect("Failed to spawn_blocking for TransactionModel::from_transactions");
@@ -136,6 +188,7 @@ impl ProcessorTrait for CustomProcessor {
             self.name(),
             start_version,
             end_version,
+            &events,
             &postgres_current_table_items,
             &self.per_table_chunk_sizes,
         )
@@ -175,8 +228,11 @@ impl ProcessorTrait for CustomProcessor {
     }
 }
 
-pub fn process_transactions(transactions: Vec<Transaction>) -> Vec<RawCurrentTableItem> {
+pub fn process_transactions(
+    transactions: Vec<Transaction>,
+) -> (Vec<RawCurrentTableItem>, Vec<EventModel>) {
     let mut current_table_items = AHashMap::new();
+    let mut events = vec![];
 
     for transaction in transactions {
         let version = transaction.version as i64;
@@ -185,6 +241,16 @@ pub fn process_transactions(transactions: Vec<Transaction>) -> Vec<RawCurrentTab
             .timestamp
             .as_ref()
             .expect("Transaction timestamp doesn't exist!");
+        let txn_data = match transaction.txn_data.as_ref() {
+            Some(txn_data) => txn_data,
+            None => {
+                tracing::warn!(
+                    transaction_version = transaction.version,
+                    "Transaction data doesn't exist",
+                );
+                continue;
+            },
+        };
         let transaction_info = transaction
             .info
             .as_ref()
@@ -228,6 +294,17 @@ pub fn process_transactions(transactions: Vec<Transaction>) -> Vec<RawCurrentTab
                 _ => {},
             };
         }
+
+        // user event
+        if let TxnData::User(tx_inner) = txn_data {
+            let txn_events = EventModel::from_events(&tx_inner.events, version, block_height)
+                .into_iter()
+                .filter(|e|
+                    TARGET_EVENTS.contains(&e.indexed_type.as_str()) || TARGET_PREFIX_EVENTS.iter().any(|prefix| e.indexed_type.starts_with(prefix))
+                )
+                .collect::<Vec<_>>();
+            events.extend(txn_events);
+        }
     }
     // Getting list of values and sorting by pk in order to avoid postgres deadlock since we're doing multi threaded db writes
     let mut current_table_items = current_table_items
@@ -236,5 +313,5 @@ pub fn process_transactions(transactions: Vec<Transaction>) -> Vec<RawCurrentTab
     // Sort by PK
     current_table_items
         .sort_by(|a, b| (&a.table_handle, &a.key_hash).cmp(&(&b.table_handle, &b.key_hash)));
-    current_table_items
+    (current_table_items, events)
 }

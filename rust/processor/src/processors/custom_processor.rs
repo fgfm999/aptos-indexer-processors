@@ -34,6 +34,12 @@ pub struct CustomProcessor {
 }
 
 const TARGET_EVENTS: &'static [&str] = &[
+    // Deposit or new User
+    "0x9770fa9c725cbd97eb50b2be5f7416efdfd1f1554beb0750d4dae4c64e860da3::profile::SyncProfileDepositEvent", // Aries
+    "0xc6bc659f1649553c1a3fa05d9727433dc03843baac29473c817d06d39e7621ba::lending::SupplyEvent", // Echelon
+    "0x2fe576faa841347a9b1b32c869685deb75a15e3f62dfe37cbd6d52cc403a16f6::pool::LendEvent", // Joule
+    "0x68476f9d437e3f32fd262ba898b5e3ee0a23a1d586a6cf29a28add35f253f6f7::lending_pool::Deposit", // Meso
+    // liquidation
     "0xc727553dd5019c4887581f0a89dca9c8ea400116d70e9da7164897812c6646e::pool_event::LiquidatePosition", // Thetis
     "0x68476f9d437e3f32fd262ba898b5e3ee0a23a1d586a6cf29a28add35f253f6f7::lending_pool::Liquidate",  // Meso
     "0xc6bc659f1649553c1a3fa05d9727433dc03843baac29473c817d06d39e7621ba::lending::LiquidateEvent", // Echelon
@@ -43,14 +49,17 @@ const TARGET_EVENTS: &'static [&str] = &[
 const TARGET_PREFIX_EVENTS: &'static [&str] = &[
 
     // Thala
-    // 0x6f986d146e4a90b828d8c12c14b6f4e003fdff11a8eecceceb63744363eaac01::vault::LiquidationEvent <0x1::aptos_coin::AptosCoin>
+    // 0x6f986d146e4a90b828d8c12c14b6f4e003fdff11a8eecceceb63744363eaac01::vault::LiquidationEvent<0x1::aptos_coin::AptosCoin>
     "0x6f986d146e4a90b828d8c12c14b6f4e003fdff11a8eecceceb63744363eaac01::vault::LiquidationEvent",
+    // 0x6f986d146e4a90b828d8c12c14b6f4e003fdff11a8eecceceb63744363eaac01::vault::DepositEvent<0x1::aptos_coin::AptosCoin>
+    "0x6f986d146e4a90b828d8c12c14b6f4e003fdff11a8eecceceb63744363eaac01::vault::DepositEvent",
 
     // Aries
     // 0x9770fa9c725cbd97eb50b2be5f7416efdfd1f1554beb0750d4dae4c64e860da3::controller::LiquidateEvent<
     //      0x5e156f1207d0ebfa19a9eeff00d62a282278fb8719f4fab3a586a0a2c0fffbea::coin::T,
     //      0x1::aptos_coin::AptosCoin>
     "0x9770fa9c725cbd97eb50b2be5f7416efdfd1f1554beb0750d4dae4c64e860da3::controller::LiquidateEvent",
+
 ];
 
 

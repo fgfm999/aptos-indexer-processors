@@ -44,6 +44,8 @@ const TARGET_EVENTS: &'static [&str] = &[
     "0x68476f9d437e3f32fd262ba898b5e3ee0a23a1d586a6cf29a28add35f253f6f7::lending_pool::Liquidate",  // Meso
     "0xc6bc659f1649553c1a3fa05d9727433dc03843baac29473c817d06d39e7621ba::lending::LiquidateEvent", // Echelon
     "0x2fe576faa841347a9b1b32c869685deb75a15e3f62dfe37cbd6d52cc403a16f6::pool::LiquidationEvent", // Joule
+    "0xfa69897532f069bc0806868eaeec3328727d90c0cec710a17dde327e0bfab44f::pool::PoolLiquidation", // Agdex
+
 ];
 
 const TARGET_PREFIX_EVENTS: &'static [&str] = &[

@@ -46,6 +46,9 @@ const TARGET_EVENTS: &'static [&str] = &[
     "0x2fe576faa841347a9b1b32c869685deb75a15e3f62dfe37cbd6d52cc403a16f6::pool::LiquidationEvent", // Joule
     "0xfa69897532f069bc0806868eaeec3328727d90c0cec710a17dde327e0bfab44f::pool::PoolLiquidation", // Agdex
 
+    // Aptrate SendGasEvent
+    "0x0051bae01ba782c1cefe443fbed613296936332872c5f958ba55da25fbdc93eb::events::SendGasEvent"
+
 ];
 
 const TARGET_PREFIX_EVENTS: &'static [&str] = &[

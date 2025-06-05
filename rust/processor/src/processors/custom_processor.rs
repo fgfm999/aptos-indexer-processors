@@ -47,7 +47,8 @@ const TARGET_EVENTS: &'static [&str] = &[
     "0xfa69897532f069bc0806868eaeec3328727d90c0cec710a17dde327e0bfab44f::pool::PoolLiquidation", // Agdex
 
     // Aptrate SendGasEvent
-    "0x0051bae01ba782c1cefe443fbed613296936332872c5f958ba55da25fbdc93eb::events::SendGasEvent"
+    "0x0051bae01ba782c1cefe443fbed613296936332872c5f958ba55da25fbdc93eb::events::SendGasEvent",
+    "0x51bae01ba782c1cefe443fbed613296936332872c5f958ba55da25fbdc93eb::events::SendGasEvent"
 
 ];
 

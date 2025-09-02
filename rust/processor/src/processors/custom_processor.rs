@@ -48,7 +48,11 @@ const TARGET_EVENTS: &'static [&str] = &[
 
     // Aptrate SendGasEvent
     "0x0051bae01ba782c1cefe443fbed613296936332872c5f958ba55da25fbdc93eb::events::SendGasEvent",
-    "0x51bae01ba782c1cefe443fbed613296936332872c5f958ba55da25fbdc93eb::events::SendGasEvent"
+    "0x51bae01ba782c1cefe443fbed613296936332872c5f958ba55da25fbdc93eb::events::SendGasEvent",
+
+    // AAVE
+    "0x39ddcd9e1a39fa14f25e3f9ec8a86074d05cc0881cbf667df8a6ee70942016fb::supply_logic::Supply",
+    "0x39ddcd9e1a39fa14f25e3f9ec8a86074d05cc0881cbf667df8a6ee70942016fb::liquidation_logic::LiquidationCall"
 
 ];
 
